@@ -1,11 +1,17 @@
 var MongoClient = require('mongodb').MongoClient;
 var childProcessHandler = require('./childProcessHandler');
 
-var _store = {}
+var _store = {
+    childProcess: []
+};
 process.on('exit', function() {
-    console.log("Exited")
+    for (var a = 0; a < childProcess.length; a++) {
+        _store.childProcess[a].process.exit(0);
+    }
     _store.db.close();
+    console.log("Exited");
 });
+
 process.on('uncaughtException', function(err) {
     console.log('Caught exception: ' + err);
 });
@@ -14,6 +20,27 @@ process.on('SIGINT', function() {
     console.log('Got SIGINT.  Press Control-D to exit.');
     process.exit();
 });
+
+
+
+var getChildEventHandler = function(apiDetail) {
+    return function(process, filename) {
+        childProcess.push({ filename: filename, process: process });
+        process.on('exit', function() {
+            console.log("Exited");
+            //childProcessHandler.execute(FileRemover, ['./' + filename + '.js']);
+            //FileRemover(filename);
+        });
+        process.on('uncaughtException', function(err) {
+            console.log('Caught exception: ' + err);
+        });
+
+        process.on('SIGINT', function() {
+            console.log('Got SIGINT.  Press Control-D to exit.');
+            process.exit();
+        });
+    }
+};
 // Connection url
 var url = 'mongodb://localhost:27017/NodeApis';
 // Connect using MongoClient
@@ -32,7 +59,7 @@ MongoClient.connect(url, function(err, db) {
             //fork child process
             //runApiServer(apiDetail);
             if (apiDetail && apiDetail.port) {
-                childProcessHandler.execute(runApiServer, [apiDetail]).then(function(apiDetail) {
+                childProcessHandler.execute(runApiServer, [apiDetail], getChildEventHandler(apiDetail)).then(function(apiDetail) {
                     return function(s) {
                         console.log("signal from child", apiDetail.port);
                     }

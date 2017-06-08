@@ -1,0 +1,20 @@
+{
+    //"_id": ObjectId("5937d99d7b45c84660c1066b"),
+    "apiServiceID": "000001",
+    "port": "5040",
+    "handlers": {
+        "/api": {
+            "/services-provided": {
+                "urlParam": {
+                    "paramName": "serviceID",
+                    "/payments": {
+                        "GET": "D:\\WEB_POC\\Rentals\\getPayments.js"
+                    },
+                    "GET": "D:\\WEB_POC\\Rentals\\getServiceProvided.js"
+                },
+                "GET": "D:\\WEB_POC\\Rentals\\getServicesProvided.js"
+            }
+        }
+    },
+    "status": "STOPPED"
+}

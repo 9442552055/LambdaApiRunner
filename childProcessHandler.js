@@ -3,6 +3,7 @@ var Promise = require('promise');
 var os = require('os');
 var fs = require('fs');
 var beautify = require('js-beautify').js_beautify;
+var FileRemover = require("./FileRemover");
 
 module.exports = {
     execute: execute,
@@ -19,10 +20,10 @@ function setMaxNumberOfProcesses(numOfProcesses) {
     maxNumberOfProcesses = numOfProcesses;
 }
 
-function execute(func, args) {
+function execute(func, args, callback) {
     return new Promise(function(resolve, reject) {
 
-        var request = { func: func, args: args, resolve: resolve, reject: reject };
+        var request = { func: func, args: args, resolve: resolve, reject: reject, callback: callback };
         requestsQueue.push(request);
 
         if (numberOfRunningProcesses < maxNumberOfProcesses) {
@@ -51,7 +52,7 @@ function executeRequest(request) {
         var args = request.args;
 
         var arguments = getArguments(args);
-        var filename = newConsoleCommand = 'WriteToConsole_' + Math.random().toString().replace('.', '');
+        var filename = newConsoleCommand = request.filename || Math.random().toString().replace('.', '');
         //var replaceConsoleCommand = 'var ' + newConsoleCommand + ' = console.log; console.log = function () {};';
         var funcCommand = func.toString().replace(/(\r\n|\n|\r)/gm, "");
         //var outputCommand = newConsoleCommand + '(' + func.name + '(' + arguments + '));';
@@ -59,24 +60,33 @@ function executeRequest(request) {
         //outputCommand = outputCommand.replace(/"/g, '\\\"');
         //****** edited by Arun here */
         var js = beautify(funcCommand + ' ' + outputCommand, { indent_size: 2 });
-        fs.writeFile('./' + filename + '.js', js);
-        var command = 'node ' + filename + '.js';
+        fs.writeFile('./' + filename + '.js', js, function(err) {
+            if (!err) {
+                var command = 'node ' + filename + '.js';
+                numberOfRunningProcesses++;
+                var cProcess = child.exec(command, function(error, stdout, stderr) {
+                    if (error) {
+                        reject(error);
+                    } else {
+                        try {
+                            resolve(JSON.parse(stdout.replace(/(\r\n|\n|\r)/gm, "")));
+                        } catch (e) {
+                            resolve(stdout.replace(/(\r\n|\n|\r)/gm, ""));
+                        }
+                    }
+                });
+                cProcess.on('exit', function() {
+                    numberOfRunningProcesses--;
+                    FileRemover(filename);
 
-        numberOfRunningProcesses++;
-        child.exec(command, function(error, stdout, stderr) {
-
-            numberOfRunningProcesses--;
-
-            if (error) {
-                reject(error);
-            } else {
-                try {
-                    resolve(JSON.parse(stdout.replace(/(\r\n|\n|\r)/gm, "")));
-                } catch (e) {
-                    resolve(stdout.replace(/(\r\n|\n|\r)/gm, ""));
-                }
+                });
+                request.callback(cProcess, './' + filename + '.js')
             }
         });
+
+
+
+
     });
 }
 
